@@ -1,27 +1,15 @@
 import sys
 import vtk
-from PyQt5 import QtCore, QtWidgets
-from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+"""
+A minimal example of a DICOM viewer using VTK and Qt.
+Rasmus R. Paulsen. DTU Compute. 2022
+"""
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    def keypress_callback(self, obj, ev):
-        key = obj.GetKeySym()
-        if key == 'Up':
-            cur_slice = self.image_viewer.GetSlice()
-            if cur_slice < self.image_viewer.GetSliceMax():
-                self.image_viewer.SetSlice(cur_slice + 1)
-        if key == 'Down':
-            cur_slice = self.image_viewer.GetSlice()
-            if cur_slice > self.image_viewer.GetSliceMin():
-                self.image_viewer.SetSlice(cur_slice - 1)
-
-        msg = f"{self.image_viewer.GetSlice()} / {self.image_viewer.GetSliceMax()}"
-        self.slice_text_mapper.SetInput(msg)
-        self.image_viewer.Render()
-
-    def __init__(self, parent = None):
+    def __init__(self, dicom_folder, parent=None):
         QtWidgets.QMainWindow.__init__(self, parent)
         self.frame = QtWidgets.QFrame()
         self.vl = QtWidgets.QVBoxLayout()
@@ -29,19 +17,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.vl.addWidget(self.vtkWidget)
         self.image_viewer = None
         self.slice_text_mapper = None
+        self.ren_win = None
+        self.folder = dicom_folder
         self.setup_screen_things()
-
         self.frame.setLayout(self.vl)
         self.setCentralWidget(self.frame)
         self.show()
         self.iren.Initialize()
 
     def setup_screen_things(self):
-        print("setting up screen things")
-        print("Reading DICOM")
-        folder = 'C:/data/Abdominal/CTLymphNodes/manifest-IVhUf5Gd7581798897432071977/CT Lymph Nodes/ABD_LYMPH_001/09-14-2014-ABDLYMPH001-abdominallymphnodes-30274/abdominallymphnodes-26828/'
+        print(f"Reading DICOM files from {self.folder}")
         reader = vtk.vtkDICOMImageReader()
-        reader.SetDirectoryName(folder)
+        reader.SetDirectoryName(self.folder)
         reader.Update()
         print("Reading done")
 
@@ -75,23 +62,35 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_viewer.GetRenderer().ResetCamera()
         self.image_viewer.Render()
 
+    def keypress_callback(self, obj, ev):
+        key = obj.GetKeySym()
+        if key == 'Up':
+            cur_slice = self.image_viewer.GetSlice()
+            if cur_slice < self.image_viewer.GetSliceMax():
+                self.image_viewer.SetSlice(cur_slice + 1)
+        if key == 'Down':
+            cur_slice = self.image_viewer.GetSlice()
+            if cur_slice > self.image_viewer.GetSliceMin():
+                self.image_viewer.SetSlice(cur_slice - 1)
+
+        msg = f"{self.image_viewer.GetSlice()} / {self.image_viewer.GetSliceMax()}"
+        self.slice_text_mapper.SetInput(msg)
+        self.image_viewer.Render()
+
 
 def run_qt_window():
     app = QtWidgets.QApplication(sys.argv)
+    folder = None
+    filedialog = QtWidgets.QFileDialog()
+    filedialog.setNameFilter("All files (*.*)")
+    filedialog.setAcceptMode(QtWidgets.QFileDialog.AcceptOpen)
+    filedialog.setFileMode(QtWidgets.QFileDialog.Directory)
+    if filedialog.exec():
+        folder = filedialog.selectedFiles()
 
-    folder = 'C:/data/Abdominal/CTLymphNodes/manifest-IVhUf5Gd7581798897432071977/CT Lymph Nodes/ABD_LYMPH_001/09-14-2014-ABDLYMPH001-abdominallymphnodes-30274/abdominallymphnodes-26828/'
-
-    use_file_dialog = False
-    if use_file_dialog:
-        filedialog = QtWidgets.QFileDialog()
-        filedialog.setNameFilter("All files (*.*)")
-        filedialog.setAcceptMode(QtWidgets.QFileDialog.AcceptOpen)
-        filedialog.setFileMode(QtWidgets.QFileDialog.Directory)
-        folder = filedialog.exec()
-
-
-    window = MainWindow()
-    sys.exit(app.exec_())
+    if folder is not None:
+        window = MainWindow(folder[0])
+        sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
